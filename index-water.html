@@ -1,0 +1,273 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Implement SkyBox - With First Shooter Camera - Terminal Velocity</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background:#777;
+				padding:0;
+				margin:0;
+				font-weight: bold;
+				overflow:hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				z-index:1000;
+			}
+
+			a {
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+
+	<body>
+		<div id="info">Implement SkyBox - With First Shooter Camera</div>
+
+			<script src="js/three2.js"></script>
+		<script src="js/controls/FirstPersonControls.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/OrbitControls.js"></script>
+		<script src="js/THREEx.KeyboardState.js"></script>
+		<script src="js/THREEx.FullScreen.js"></script>
+		<script src="js/THREEx.WindowResize.js"></script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+			// == all variable
+			var container;
+			var camera, scene, renderer, controls;
+			var mesh;
+			var light, materials;
+			var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+			var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+			var keyboard = new THREEx.KeyboardState();
+
+			init();
+			animate();
+
+			function init()
+			{
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				scene = new THREE.Scene();
+				scene.fog = new THREE.Fog( 0xcce0ff, 500, 10000 );
+
+				camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
+				controls = new THREE.FirstPersonControls( camera );
+				//camera.position.y = 50;
+				//camera.position.z = 1500;
+				camera.position.set(0,150,400);
+				scene.add( camera );
+				//events
+				//THREEx.WindowsResize(renderer, camera);
+				THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0)});
+				//control
+				controls =  new THREE.OrbitControls(camera, renderer);
+
+				//scene.add( new THREE.AmbientLight( 0x666666 ) );
+				light = new THREE.DirectionalLight( 0xffffff, 1.5 );
+				light.position.set( 0, 1, 1 ).normalize();
+				scene.add( light );
+
+
+				var path = "resource/Cloudy-Sky/";
+				var format = '.jpg';
+				//-- bt buttom, ft front, up top, 
+				var urls = [
+					path + 'px' + format, //benar salah
+					path + 'nx' + format, // benar
+					path + 'py' + format, // 
+					path + 'ny' + format, //bawah benar
+					path + 'pz' + format, //benar benar
+					path + 'nz' + format // benar
+				];
+
+				var textureCube = THREE.ImageUtils.loadTextureCube( urls, new THREE.CubeRefractionMapping() );
+
+				var shader = THREE.ShaderLib[ "cube" ];
+				shader.uniforms[ "tCube" ].value = textureCube;
+
+				var material = new THREE.ShaderMaterial( {
+
+					fragmentShader: shader.fragmentShader,
+					vertexShader: shader.vertexShader,
+					uniforms: shader.uniforms
+					,depthWrite: false,
+					side: THREE.BackSide
+
+				} ),
+
+				mesh = new THREE.Mesh( new THREE.CubeGeometry( 10000, 10000, 10000,1 ,1 ,1, null, true ), material );
+				scene.add( mesh );
+
+				//-- noise by oos.moxiecode.com
+				var rx = 512, ry = 512;
+				var pars = { minFilter: THREE.LinearMipmapLinearFilter, magFilter : THREE.LinearFilter, format: THREE.RGBFormat};
+
+				noiseMap = new THREE.WebGLRendererTarget(rx, ry, pars);
+				normalMap = new THREE.WebGLRendererTarget(rx, ry, pars);
+				colorMap = new THREE.WebGLRendererTarget(rx, ry, pars);
+				specularMap = new THREE.WebGLRendererTarget(rx, ry, pars);
+
+				uniformsNoise = {
+					time : { type: "f" , value: 1.0},
+					scale : { type: "v2" , value: new THREE.Vector2(2,2)}
+				};
+
+				uniformsNormal = {
+					height : { type: "f", value : 0.075},
+					resolution : { type: "v2", value: new THREE.Vector2(rx, ry)},
+					scale : { type: "v2", value: new THREE.Vector2(1,1)},
+					heightMap :{ type: "t", value: 1, texture: noiseMap}
+				};
+
+				var rwidth = 256, rheight = 1, rsize = rwidth * rheight;
+
+				var tcolor = new THREE.Color( 0xffffff);
+				//color ramp data
+
+				// Normal
+
+				var normalShader = THREE.ShaderUtils.lib[ "normal" ];
+
+				uniformsNormalMap = THREE.UniformsUtils.clone( normalShader.uniforms );
+
+				uniformsNormalMap[ "tNormal" ].texture = normalMap;
+				//uniformsNormalMap[ "uNormalScale" ].value = 100.25;
+
+				uniformsNormalMap[ "tDiffuse" ].texture = colorMap;
+				uniformsNormalMap[ "tSpecular" ].texture = specularMap;
+				uniformsNormalMap[ "tAO" ].texture = noiseMap;
+
+				uniformsNormalMap[ "enableAO" ].value = true;
+				uniformsNormalMap[ "enableDiffuse" ].value = false;
+				uniformsNormalMap[ "enableSpecular" ].value = true;
+
+				uniformsNormalMap[ "uDiffuseColor" ].value.setHex( 0x202336 );
+				uniformsNormalMap[ "uSpecularColor" ].value.setHex( 0xd2cfb9 );
+				uniformsNormalMap[ "uAmbientColor" ].value.setHex( 0x1a1d21 );
+
+				uniformsNormalMap[ "uShininess" ].value = 20;
+
+				uniformsNormalMap[ "enableReflection" ].value = true;
+				uniformsNormalMap[ "tCube" ].texture = textureCube;
+				uniformsNormalMap[ "uReflectivity" ].value = 0.40;
+
+				uniformsNormalMap[ "tNormal" ].texture.wrapS = uniformsNormalMap[ "tNormal" ].texture.wrapT = THREE.MirroredRepeatWrapping;
+				uniformsNormalMap[ "tSpecular" ].texture.wrapS = uniformsNormalMap[ "tSpecular" ].texture.wrapT = THREE.MirroredRepeatWrapping;
+				uniformsNormalMap[ "tAO" ].texture.wrapS = uniformsNormalMap[ "tAO" ].texture.wrapT = THREE.MirroredRepeatWrapping;
+
+				uniformsNormalMap[ "uRepeat" ].value = new THREE.Vector2(20,80);
+
+				var size = 1.25,
+					params = [
+								[ 'noise', 		document.getElementById( 'fragmentShaderNoise' ).textContent, 	vertexShader, uniformsNoise, false, false ],
+								[ 'normal', 	document.getElementById( 'fragmentShaderNormal' ).textContent,  vertexShaderFlip, uniformsNormal, false, false ],
+								[ 'color', 		document.getElementById( 'fragmentShaderColormap' ).textContent,  vertexShaderFlip, uniformsColor, false, false ],
+								[ 'normalmap', 	normalShader.fragmentShader, normalShader.vertexShader, uniformsNormalMap, true, true ]
+							 ];
+				for( var i = 0; i < params.length; i ++ ) {
+
+					material = new THREE.ShaderMaterial( {
+
+						uniforms: 		params[ i ][ 3 ],
+						vertexShader: 	params[ i ][ 2 ],
+						fragmentShader: params[ i ][ 1 ],
+						lights: 		params[ i ][ 4 ],
+						fog: 		params[ i ][ 5 ]
+						} );
+
+					mlib[ params[ i ][ 0 ] ] = material;
+
+				}
+
+				var geometryPlane = new THREE.PlaneGeometry( size, size );
+
+				var rx = 0, half = size / 2;
+				// NOISE
+
+				mesh = new THREE.Mesh( geometryPlane, new THREE.MeshBasicMaterial( { color: 0xffffff, map: noiseMap  } ) );
+
+				mesh.position.x = -size;
+				mesh.position.y = half * 0.75;
+
+				mesh.rotation.x = rx;
+				mesh.scale.set( half, half, half );
+
+				//scene.add( mesh );
+
+				// NORMALS
+
+				mesh = new THREE.Mesh( geometryPlane, new THREE.MeshBasicMaterial( { color: 0xffffff, map: normalMap } ) );
+
+				mesh.position.x = -size;
+				mesh.position.y = -half * 0.75;
+
+				mesh.rotation.x = rx;
+				mesh.scale.set( half, half, half );
+
+				//scene.add( mesh );
+
+				var material2 = new THREE.MeshLambertMaterial( { color: 0x7f7566, wireframe: true, wireframeLinewidth: 1 } );
+
+				mesh2 = new THREE.Mesh( new THREE.PlaneGeometry( 1000, 1000, 100, 100 ), material2 );
+				mesh2.position.y = 0;
+				mesh2.rotation.x = - Math.PI / 2;
+				scene.add( mesh2 );
+
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.setClearColor( scene.fog.color );
+
+				container.appendChild( renderer.domElement );
+
+
+			}
+			
+			//camera function
+			function onWindowResize() 
+			{
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				controls.handleResize();
+			}
+
+
+			function animate()
+			{
+				requestAnimationFrame( animate );
+				render();
+			}
+			function render()
+			{
+				controls.update();
+				camera.lookAt( scene.position );
+
+				renderer.render( scene, camera );
+			}
+
+
+		</script>
+
+	</body>
+</html>

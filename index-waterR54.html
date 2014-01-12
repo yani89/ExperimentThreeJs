@@ -1,0 +1,135 @@
+<html>
+<head>
+<title>Water effect using simplex noise - first person</title>
+</head>
+<body>
+		<script type="text/javascript" src="js/Three.js"></script>
+
+		<script type="text/javascript" src="js/THREEx.WindowResize.js"></script>
+		<script type="text/javascript" src="js/RequestAnimationFrame.js"></script>
+		
+<script type="text/javascript">
+
+	var SCREEN_WIDTH = window.innerWidth;
+	var SCREEN_HEIGHT = window.innerHeight;
+	var FLOOR = 0; // flooor oos.msiexe
+	
+	var renderer, container, stats;
+	
+	var camera, scene;
+	var cameraOrtho, sceneRenderTarget , camTarget , cameraCube; //sceneRenderTarget not same as camTarget
+	
+	var cubeTarget, sceneCube, scene;
+	
+	var uniformsNoise, uniformsNormal,
+		heightMap, normalMap,
+		quadTarget;
+	
+	var directionalLight , pointLight;
+	
+	init(), animate();
+	
+	function init()
+	{
+		container = document.createElement('div');
+		document.body.appendChild(container);
+		
+		var aspect = SCREEN_WIDTH/ SCREEN_HEIGHT;
+		
+		camera = new THREE.PerspectiveCamera(65, aspect, 1, 100000);
+		camera.position.z = 350;
+		camera.position.x = -3500;
+		camera.position.y = 150;
+		
+		camTarget = new THREE.Object3D();
+		
+		cameraOrtho = new THREE.Camera();
+		cameraOrtho.projectionMatrix = THREE.Matrix4.makeOrtho
+		(
+			window.innerWidth/ -2, window.innerWidth/ 2, 
+			window.innerHeight/ 2, window.innerHeight/ -2,
+			-10000, 10000
+		);
+		cameraOrtho.position.z = 100;
+		
+		sceneRenderTargete = new THREE.Scene();
+		
+		scene = new THREE.Scene();
+		scene.fog = new THREE.FogExp2( 0x131313, 0.0001 );
+		
+		cameraCube = new THREE.PerspectiveCamera(65, window.innerWidth/ window.innerHeight, 1, 100000);
+		cubeTarget = new THREE.Vector3( 0, 0 ,0 );
+		sceneCube = new THREE.Scene();
+		
+		var path = "resource/Cloudy-Sky/";
+				var format = '.jpg';
+				//-- bt buttom, ft front, up top, 
+				var urls = [
+					path + 'px' + format, //benar salah
+					path + 'nx' + format, // benar
+					path + 'py' + format, // 
+					path + 'ny' + format, //bawah benar
+					path + 'pz' + format, //benar benar
+					path + 'nz' + format // benar
+				];
+				var textureCube = THREE.ImageUtils.loadTextureCube( urls );
+
+				// Skybox
+
+				var shader = THREE.ShaderUtils.lib[ "cube" ];
+				shader.uniforms[ "tCube" ].texture = textureCube;
+
+				var material = new THREE.ShaderMaterial( {
+
+					fragmentShader: shader.fragmentShader,
+					vertexShader: shader.vertexShader,
+					uniforms: shader.uniforms,
+					depthWrite: false
+
+				} ),
+
+			mesh = new THREE.Mesh( new THREE.CubeGeometry( 100, 100, 100 ), material );
+			mesh.flipSided = true;
+			sceneCube.add( mesh );
+			
+			// RENDERER
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+				renderer.setClearColor( scene.fog.color, 1 );
+				THREEx.WindowResize(renderer, camera);
+				THREEx.WindowResize(renderer, cameraCube);
+				
+				renderer.domElement.style.position = "absolute";
+				//renderer.domElement.style.top = MARGIN + "px";
+				renderer.domElement.style.left = "0px";
+				
+				container.appendChild( renderer.domElement );
+
+				//
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+				
+				//stats = new Stats();
+				//container.appendChild( stats.domElement );
+
+	}
+	
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				//stats.update();
+
+			}
+		
+			function render()
+			{
+				renderer.render( sceneCube, cameraCube );
+			}
+	
+
+</script>
+</body>
+</html>

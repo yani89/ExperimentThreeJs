@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<script type="text/javascript" src="../js/three.js"></script>
+<script type="text/javascript" src="../js/detector.js"></script>
+<script src="threejs-layer.js"></script>
+<script src="styles.js"></script>
+<script src="http://maps.googleapis.com/maps/api/js?sensor=false"></script>
+<script>
+    function init() {
+
+
+        var container = document.getElementById('map-div');
+
+        var map = new google.maps.Map(container, {
+          zoom: 3,
+          mapTypeControl: false,
+          center: new google.maps.LatLng(10, 0),
+          mapTypeId: google.maps.MapTypeId.ROADMAP,
+          //styles: styles
+        });
+
+        
+      }
+
+      document.addEventListener('DOMContentLoaded', init, false);
+</script>
+</head>
+
+<body>
+<center><div id="map-div"></div></center>
+
+</body>
+</html> 

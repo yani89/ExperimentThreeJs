@@ -1,0 +1,137 @@
+<html>
+<head>
+	<title>SECOND THREE.JS TUTORIAL - PLANE</title>
+</head>
+<body>
+	
+	
+	<div id="ThreeJS" style="position: absolute; left:0px; top:0px"></div>
+
+	<script type="text/javascript" src="js/three2.js"></script>
+	<script src="js/loaders/ColladaLoader.js"></script>
+	<script src="js/controls/FirstPersonControls.js"></script>
+			<script src="js/OrbitControls.js"></script>
+	<!-- ORBIT CONTROL TO CONTROL CAMERA -->
+	
+
+	<script type="text/javascript">
+		var container;
+		var scene, camera, renderer;
+		var geometry, material, cube;
+		var FLOOR = -100;
+		var model;
+		
+		//-- camera
+		var target = new THREE.Vector3(1000,1000,1000);
+		var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+		var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+		var controls;
+		var mouseX = 0, mouseY = 0;
+		var clock = new THREE.Clock();
+		var windowHalfX = window.innerWidth / 2;
+		var windowHalfY = window.innerHeight / 2;
+
+		var terrain;
+
+		init();
+		animate();
+
+		//-- function mouse
+		document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+
+
+
+		function init()
+		{
+			container = document.getElementById('ThreeJS');
+			document.body.appendChild(container);
+
+			scene = new THREE.Scene();
+			//-- camera
+			camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+			camera.position.set(0,100,100);
+			camera.lookAt(target);
+
+			scene.add(camera);
+
+			controls = new THREE.OrbitControls( camera, renderer );
+
+
+			geometry = new THREE.CubeGeometry(30,30,30);
+			material = new THREE.MeshBasicMaterial({ color: 0x0000ff});
+			cube = new THREE.Mesh(geometry, material);
+			cube.rotation.x = 45;
+			//scene.add(cube);
+
+			//-- light
+			var light = new THREE.PointLight(0xffffff);
+			light.position.set(0,250,0);
+			scene.add(light);
+
+
+
+			//-- floor
+			var floorTexture = new THREE.ImageUtils.loadTexture( 'resource/images/checkerboard.jpg' );
+			floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping; 
+			floorTexture.repeat.set( 10, 10 );
+			var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side: THREE.DoubleSide } );
+			var floorGeometry = new THREE.PlaneGeometry(100, 100, 10, 10);
+			var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+			floor.position.y = -0.5;
+			floor.rotation.x = Math.PI / 2;
+			scene.add(floor);
+
+			var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x38B0DE } );
+			var skyBoxGeometry = new THREE.CubeGeometry( 1000, 1000, 1000);
+			skyBoxMaterial.side = THREE.BackSide;
+			var skyBox = new THREE.Mesh(skyBoxGeometry, skyBoxMaterial);
+			scene.add(skyBox);
+
+			var axes = new THREE.AxisHelper(100);
+			scene.add(axes);
+
+			var jsonLoader = new THREE.JSONLoader();
+			jsonLoader.load( "resource/heightmap/terrainBaru.js", addModelToScene );
+
+		
+
+			renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight);
+			container.appendChild( renderer.domElement );
+		}
+		function animate()
+		{
+			requestAnimationFrame(animate);
+			cube.rotation.z+= 0.01
+			render();
+		}
+
+		function addModelToScene( geometry, materials ) 
+		{
+			// for preparing animation
+			var material = new THREE.MeshFaceMaterial( materials );
+			terrain = new THREE.Mesh( geometry, material );
+			terrain.scale.set(10,10,10);
+			scene.add( terrain );
+
+		}
+
+		function onDocumentMouseMove(event) {
+
+				mouseX = ( event.clientX - windowHalfX ) * 10;
+				mouseY = ( event.clientY - windowHalfY ) * 10;
+
+		}
+
+
+
+		function render()
+		{
+			var delta = clock.getDelta();
+			controls.update(delta);
+			renderer.render(scene, camera);
+		}
+
+	</script>
+</body>
+</html>
