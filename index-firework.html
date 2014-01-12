@@ -1,0 +1,354 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Implement SkyBox - With First Shooter Camera - Terminal Velocity</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background:#777;
+				padding:0;
+				margin:0;
+				font-weight: bold;
+				overflow:hidden;
+			}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				z-index:1000;
+			}
+
+			a {
+				color: #ffffff;
+			}
+
+			#oldie a { color:#da0 }
+		</style>
+	</head>
+
+	<body>
+		<div id="info">Implement SkyBox - With FireWorks</div>
+
+		<script src="js/three2.js"></script>
+		<script src="js/controls/FirstPersonControls.js"></script>
+		<script src="js/Detector.js"></script>
+		<script src="js/ShaderParticleGroup.js"></script>
+		<script src="js/ShaderParticleEmitter.js"></script>
+		<script src="js/OrbitControls.js"></script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container;
+
+			var camera, scene, renderer;
+			
+			var mesh, lightMesh, geometry;
+			var spheres = [];
+
+			var meshWater,materialWater;
+			var clock = new THREE.Clock();
+
+			var worldWidth = 128, worldDepth = 128,
+			worldHalfWidth = worldWidth / 2, worldHalfDepth = worldDepth / 2;
+
+			var directionalLight, pointLight;
+
+			var mouseX = 0, mouseY = 0;
+			var clock = new THREE.Clock();
+			var windowHalfX = window.innerWidth / 2;
+			var windowHalfY = window.innerHeight / 2;
+
+			document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+			document.addEventListener( 'mousedown', onDocumentMouseDown, true );
+
+
+
+				var Sound = function ( sources, radius, volume ) {
+
+				var audio = document.createElement( 'audio' );
+
+				for ( var i = 0; i < sources.length; i ++ ) {
+
+					var source = document.createElement( 'source' );
+					source.src = sources[ i ];
+
+					audio.appendChild( source );
+
+				}
+
+				this.position = new THREE.Vector3();
+
+				this.play = function () {
+
+					audio.play();
+
+				}
+
+
+
+			}
+
+
+
+			var lon = 90, onMouseDownLon = 0,
+			lat = 0, onMouseDownLat = 0,
+			isUserInteracting = false,
+			phi =0 , theta = 0,
+			onMouseDownMouseX = 0, onMouseDownMouseY = 0;
+
+			var target = new THREE.Vector3(1000,1000,1000);
+
+			init();
+			animate();
+
+			function init() {
+
+				scene = new THREE.Scene();
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+					var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+					var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+				camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
+					camera.position.set(0,-1500,200);
+					camera.lookAt(target);
+					scene.add(camera);
+	//camera.lookAt(scene.position);
+				controls = new THREE.OrbitControls( camera, renderer );
+				scene.fog = new THREE.FogExp2( 0xaaccff, 0.0007 );				 	
+
+				var path = "resource/Night-Sky/";
+				var format = '.jpg';
+				//-- bt buttom, ft front, up top, 
+				var urls = [
+					path + 'px' + format, //benar salah
+					path + 'nx' + format, // benar
+					path + 'py' + format, // 
+					path + 'ny' + format, //bawah benar
+					path + 'pz' + format, //benar benar
+					path + 'nz' + format // benar
+				];
+
+				var textureCube = THREE.ImageUtils.loadTextureCube( urls, new THREE.CubeRefractionMapping() );
+
+				var material2 = new THREE.MeshLambertMaterial( { color: 0x7f7566, wireframe: true, wireframeLinewidth: 1 } );
+
+				mesh2 = new THREE.Mesh( new THREE.PlaneGeometry( 1000, 1000, 100, 100 ), material2 );
+				mesh2.position.y = 0;
+				mesh2.rotation.x = - Math.PI / 2;
+				//scene.add( mesh2 );
+
+				// Skybox
+
+				var shader = THREE.ShaderLib[ "cube" ];
+				shader.uniforms[ "tCube" ].value = textureCube;
+
+				var material = new THREE.ShaderMaterial( {
+
+					fragmentShader: shader.fragmentShader,
+					vertexShader: shader.vertexShader,
+					uniforms: shader.uniforms
+					,depthWrite: false,
+					side: THREE.BackSide
+
+				} ),
+
+				mesh = new THREE.Mesh( new THREE.CubeGeometry( 10000, 10000, 10000,1 ,1 ,1, null, true ), material );
+				scene.add( mesh );
+
+				var light = new THREE.PointLight(0xffffff);
+				light.position.set(100,250,100);
+				scene.add(light);
+
+				// water
+				geometry = new THREE.PlaneGeometry( 20000, 20000, worldWidth - 1, worldDepth - 1 );
+				geometry.applyMatrix( new THREE.Matrix4().makeRotationX( - Math.PI / 2 ) );
+				geometry.dynamic = true;
+
+				var i, j, il, jl;
+
+				for ( i = 0, il = geometry.vertices.length; i < il; i ++ ) {
+
+					geometry.vertices[ i ].y = 35 * Math.sin( i/2 );
+
+				}
+
+
+				//console.log( "triangles: " + geometry.faces.length * 2 + " faces: " + geometry.faces.length + " vertices: " + geometry.vertices.length );
+
+				geometry.computeFaceNormals();
+				geometry.computeVertexNormals();
+
+
+				var texture = THREE.ImageUtils.loadTexture( "resource/water/water.jpg" );
+				texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+				texture.repeat.set( 5, 5 );
+
+				materialWater = new THREE.MeshBasicMaterial( { color: 0x0044ff, map: texture } );
+
+				meshWater = new THREE.Mesh( geometry, materialWater );
+				//scene.add( meshWater );
+
+
+				emitterSettings = {
+					type: 'sphere',
+					positionSpread: new THREE.Vector3(100,100,100),
+					acceleration: new THREE.Vector3(0,-20,0),
+					radius: 60,
+					speed: 20,
+					speedSpread:20,
+					sizeStart:60,
+					sizeEnd:20,
+					opacityStart: 1,
+					opacityMiddle: 1,
+					opacityEnd: 0,
+					colorStart: new THREE.Color('white'),
+					colorStartSpread: new THREE.Vector3(0.5,0.5,0.5),
+					colorMiddle: new THREE.Color('red'),
+					colorEnd: new THREE.Color('red'),
+					particlesPerSecond:6000,
+					alive: 0,
+					emitterDuration: 0.1
+				};
+
+				this.particleGroup = new ShaderParticleGroup
+				({
+					texture : THREE.ImageUtils.loadTexture('resource/images/spark.png'),
+						maxAge : 2,
+						colorize: 1,
+						blending: THREE.AdditiveBlending,
+				});
+
+				var colors = ["red", "orange", "yellow", "green", "blue", "violet", "pink", "magenta", "cyan", "steelblue", "seagreen"];
+				for(var i=0; i< colors.length; i++)
+				{
+					emitterSettings.colorMiddle = new THREE.Color(colors[i]);
+					emitterSettings.colorEnd = new THREE.Color(colors[i]);
+					particleGroup.addPool(1, emitterSettings, false);
+				}
+				scene.add(particleGroup.mesh);
+
+
+
+
+				renderer = new THREE.WebGLRenderer({ alpha: false });
+				renderer.setClearColor( 0xaaccff, 1 );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.autoClear = false;
+				container.appendChild( renderer.domElement );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				windowHalfX = window.innerWidth / 2,
+				windowHalfY = window.innerHeight / 2,
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				//cameraCube.aspect = window.innerWidth / window.innerHeight;
+				//cameraCube.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function onDocumentMouseMove(event) {
+
+				mouseX = ( event.clientX - windowHalfX ) * 10;
+				mouseY = ( event.clientY - windowHalfY ) * 10;
+
+			}
+
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+
+				isUserInteracting = true;
+
+				onPointerDownPointerX = event.clientX;
+				onPointerDownPointerY = event.clientY;
+
+				onPointerDownLon = lon;
+				onPointerDownLat = lat;
+
+			}
+
+			//
+
+			function randomVector3(xMin, xMax, yMin, yMax, zMin, zMax)
+			{
+				return new THREE.Vector3( xMin + (xMax - xMin) * Math.random(),
+				yMin + (yMax - yMin) * Math.random(), zMin + (zMax - zMin) * Math.random() );
+			}
+
+			function animate() {
+	
+
+
+				requestAnimationFrame( animate );
+
+				render();
+
+			}
+
+			function render() {
+
+				var timer = 0.0001 * Date.now();
+				var delta = clock.getDelta(),
+				time = clock.getElapsedTime() * 1000;
+
+				particleGroup.tick( delta );
+
+				sound1 = new Sound( [ 'resource/sound/9311_1355839263.mp3'], 275, 1 );
+				//sound1.position( 100,100,100 );
+				sound1.play();
+
+				if ( Math.random() < delta )
+				particleGroup.triggerPoolEmitter( 1, randomVector3(-200,200, 50,200, -200,-100) );
+
+				for ( var i = 0, il = spheres.length; i < il; i ++ ) {
+
+					var sphere = spheres[ i ];
+
+					sphere.position.x = 5000 * Math.cos( timer + i );
+					sphere.position.y = 5000 * Math.sin( timer + i * 1.1 );
+
+				}
+
+				for ( var i = 0, l = geometry.vertices.length; i < l; i ++ ) {
+
+					geometry.vertices[ i ].y = 100 * Math.sin( i / 5 + ( time + i ) / 7 );
+
+				}
+
+				//geometry.computeFaceNormals();
+				//geometry.computeVertexNormals();
+
+				//mesh.geometryWater.verticesNeedUpdate = true;
+
+				//camera.lookAt( target );
+
+				controls.update(delta);
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
